@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Ideas;
 use App\Models\Post;
 use App\Models\User;
+use App\Models\Book;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -118,3 +119,113 @@ Route::delete('/user-delete/{id}', function ($id) {
     $user->delete();
     return redirect()->route('users.index');
 })->name('users.destroy');
+
+Route::get('/books', function (Request $request) {
+    $genres = Book::select('genre')->distinct()->orderBy('genre')->pluck('genre');
+    $books = Book::query();
+
+    if ($search = $request->query('search')) {
+        $books->where(function ($query) use ($search) {
+            $query->where('title', 'like', "%{$search}%")
+                  ->orWhere('author', 'like', "%{$search}%");
+        });
+    }
+
+    if ($genre = $request->query('genre')) {
+        $books->where('genre', $genre);
+    }
+
+    return view('books.index', [
+        'books' => $books->orderBy('created_at', 'desc')->get(),
+        'genres' => $genres,
+    ]);
+})->name('books.index');
+
+Route::get('/books/create', function () {
+    return view('books.create');
+})->name('books.create');
+
+Route::post('/books', function (Request $request) {
+    $validated = $request->validate([
+        'title' => 'required|string|max:255',
+        'author' => 'required|string|max:255',
+        'description' => 'required|string',
+        'genre' => 'required|string|max:255',
+        'published_year' => 'required|integer',
+        'isbn' => 'required|string|unique:books,isbn',
+        'pages' => 'required|integer',
+        'language' => 'required|string|max:255',
+        'publisher' => 'required|string|max:255',
+        'price' => 'required|numeric',
+        'cover_image' => 'nullable|image|max:2048',
+        'is_available' => 'sometimes|boolean',
+    ]);
+
+    if ($request->hasFile('cover_image')) {
+        $image = $request->file('cover_image');
+        $filename = time() . '_' . preg_replace('/[^A-Za-z0-9\-_.]/', '_', $image->getClientOriginalName());
+        $destination = public_path('cover_images');
+
+        if (!file_exists($destination)) {
+            mkdir($destination, 0755, true);
+        }
+
+        $image->move($destination, $filename);
+        $validated['cover_image'] = 'cover_images/' . $filename;
+    }
+
+    $validated['is_available'] = $request->has('is_available');
+    Book::create($validated);
+
+    return redirect()->route('books.index');
+})->name('books.store');
+
+Route::get('/books/{book}', function (Book $book) {
+    return view('books.show', compact('book'));
+})->name('books.show');
+
+Route::get('/books/{book}/edit', function (Book $book) {
+    return view('books.edit', compact('book'));
+})->name('books.edit');
+
+Route::put('/books/{book}', function (Request $request, Book $book) {
+    $validated = $request->validate([
+        'title' => 'required|string|max:255',
+        'author' => 'required|string|max:255',
+        'description' => 'required|string',
+        'genre' => 'required|string|max:255',
+        'published_year' => 'required|integer',
+        'isbn' => 'required|string|unique:books,isbn,' . $book->id,
+        'pages' => 'required|integer',
+        'language' => 'required|string|max:255',
+        'publisher' => 'required|string|max:255',
+        'price' => 'required|numeric',
+        'cover_image' => 'nullable|image|max:2048',
+        'is_available' => 'sometimes|boolean',
+    ]);
+
+    if ($request->hasFile('cover_image')) {
+        $image = $request->file('cover_image');
+        $filename = time() . '_' . preg_replace('/[^A-Za-z0-9\-_.]/', '_', $image->getClientOriginalName());
+        $destination = public_path('cover_images');
+
+        if (!file_exists($destination)) {
+            mkdir($destination, 0755, true);
+        }
+
+        $image->move($destination, $filename);
+        $validated['cover_image'] = 'cover_images/' . $filename;
+    } else {
+        $validated['cover_image'] = $book->cover_image;
+    }
+
+    $validated['is_available'] = $request->has('is_available');
+    $book->update($validated);
+
+    return redirect()->route('books.index');
+})->name('books.update');
+
+Route::delete('/books/{book}', function (Book $book) {
+    $book->delete();
+    return redirect()->route('books.index');
+})->name('books.destroy');

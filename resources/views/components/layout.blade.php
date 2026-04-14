@@ -20,9 +20,15 @@
         padding: 10px;
         color:#000000;
         font-weight: bold;
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 10px;
     }
     a{
         padding: 10px;
+        color: inherit;
+        text-decoration: none;
     }
     </style>
 <body>
@@ -31,6 +37,7 @@
         <a href="/about">About</a>
         <a href="/contact">Contact</a>
         <a href="/formtest">Form Test</a>
+        <a href="/books">Books</a>
     </nav>
 {{ $slot }}
 
